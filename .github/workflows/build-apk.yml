@@ -1,4 +1,4 @@
-name: Build知学TV APK
+name: Build 知学TV APK
 
 on:
   push:
@@ -17,15 +17,41 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Build with Buildozer
-        uses: ArtemSBulgakov/buildozer-action@v1
-        id: buildozer
-        with:
-          command: buildozer android debug
-          buildozer_version: stable
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git zip unzip openjdk-17-jdk \
+            autoconf libtool pkg-config zlib1g-dev libncurses5-dev \
+            libffi-dev libssl-dev ccache libltdl-dev \
+            python3-setuptools python3-pip
+
+      - name: Install Buildozer
+        run: |
+          pip install --upgrade pip
+          pip install Cython==0.29.34 buildozer
+
+      - name: Buildozer init (if missing)
+        run: |
+          if [ ! -f buildozer.spec ]; then
+            buildozer init
+          fi
+
+      - name: Build APK
+        run: |
+          export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+          buildozer -v android debug 2>&1 | tee build.log
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: 知学TV-APK
-          path: ${{ steps.buildozer.outputs.filename }}
+          name: zhixuetv-apk
+          path: 'bin/*.apk'
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
